@@ -1,151 +1,97 @@
 :root {
-    --bg-deep: #0a0a0c;
-    --bg-glass: rgba(20, 20, 25, 0.7);
-    --accent-gold: #d4af37;
-    --accent-blue: #007aff;
-    --text-primary: #ffffff;
-    --text-dim: #a0a0a5;
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --glow-gold: 0 0 20px rgba(212, 175, 55, 0.2);
-}
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Inter', -apple-system, sans-serif;
+    --bg-dark: #0f0f0f;
+    --card-bg: #1e1e1e;
+    --text-main: #ffffff;
+    --text-dim: #b0b0b0;
+    --accent-gold: #fbbf24;
+    --status-done: #22c55e;
+    --status-processing: #eab308;
+    --status-pending: #64748b;
 }
 
 body {
-    background: var(--bg-deep);
-    color: var(--text-primary);
-    min-height: 100vh;
-    overflow-x: hidden;
-    background-image: radial-gradient(circle at 50% -20%, #1a1a2e 0%, var(--bg-deep) 100%);
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 20px;
 }
 
-.app-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 2rem;
-}
-
-header {
-    margin-bottom: 3rem;
+.dashboard-header {
     text-align: center;
+    margin-bottom: 40px;
 }
 
-header h1 {
-    font-size: 2.5rem;
-    font-weight: 800;
-    letter-spacing: -1px;
-    background: linear-gradient(135deg, #fff 0%, var(--accent-gold) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 0.5rem;
-}
-
-header p {
-    color: var(--text-dim);
-    font-size: 0.9rem;
-}
-
-/* Glass Dashboard */
-.dashboard-grid {
+#album-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 2rem;
+    gap: 25px;
+    padding: 20px;
 }
 
 .album-card {
-    background: var(--bg-glass);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--glass-border);
-    border-radius: 20px;
-    padding: 1.5rem;
-    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
-    cursor: pointer;
-    position: relative;
+    background: var(--card-bg);
+    border-radius: 16px;
     overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid rgba(255,255,255,0.05);
 }
 
 .album-card:hover {
-    transform: translateY(-8px);
-    border-color: var(--accent-gold);
-    box-shadow: var(--glow-gold);
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
 }
 
 .album-art {
     width: 100%;
     aspect-ratio: 1;
-    border-radius: 12px;
-    background: #151518;
-    margin-bottom: 1.2rem;
     object-fit: cover;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
-.album-info h3 {
-    font-size: 1.1rem;
-    margin-bottom: 0.3rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.album-info {
+    padding: 20px;
 }
 
-.album-info p {
-    color: var(--text-dim);
-    font-size: 0.85rem;
-}
-
-/* Status Widget */
-.status-pill {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    padding: 0.4rem 0.8rem;
-    background: rgba(0,0,0,0.5);
-    border-radius: 30px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--accent-gold);
-}
-
-/* Processing Overlay */
-.overlay {
-    display: none;
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.9);
-    backdrop-filter: blur(10px);
-    z-index: 1000;
-    flex-direction: column;
+.status-container {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
-    padding: 2rem;
+    padding: 10px 20px;
+    font-size: 0.8rem;
 }
 
-.progress-container {
+.track-count {
+    color: var(--text-dim);
+}
+
+.badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+}
+
+.badge.done { background: var(--status-done); color: white; }
+.badge.processing { background: var(--status-processing); color: black; }
+
+.auth-btn {
     width: 100%;
-    max-width: 400px;
-    height: 4px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 10px;
-    margin: 1.5rem 0;
-    overflow: hidden;
-}
-
-.progress-bar {
-    width: 0%;
-    height: 100%;
+    padding: 12px;
+    border-radius: 8px;
     background: var(--accent-gold);
-    transition: width 0.3s ease;
-    box-shadow: 0 0 15px var(--accent-gold);
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    transition: filter 0.2s;
 }
 
-.status-text {
-    font-size: 1.1rem;
-    font-weight: 500;
-    margin-top: 1rem;
+.auth-btn:hover:not(:disabled) {
+    filter: brightness(1.1);
+}
+
+.auth-btn:disabled {
+    background: #333;
+    color: #666;
+    cursor: not-allowed;
 }
