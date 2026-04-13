@@ -1,0 +1,17 @@
+{
+  "name": "MusiChris Studio",
+  "short_name": "MusiChris",
+  "description": "Automatización de Música a YouTube",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0a0a0b",
+  "theme_color": "#fbbf24",
+  "icons": [
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
