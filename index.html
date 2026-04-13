@@ -2,48 +2,23 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MusiTube Automator | Antigravity Elite</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MusiTube Automator | Control Panel</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
-    <!-- Google Identity & YouTube API -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://apis.google.com/js/api.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="app-container">
-        <header>
-            <h1>MusiTube <span style="font-weight: 300;">Automator</span></h1>
-            <p>Sincronización Premium de Álbumes Cloudinary a YouTube</p>
-            
-            <div style="margin-top: 1.5rem;">
-                <button id="auth-btn" class="album-card" style="display: inline-block; padding: 0.8rem 2rem; width: auto; font-weight: 700; color: var(--accent-gold);">
-                    Conectar con YouTube Studio
-                </button>
-            </div>
-        </header>
+    <header class="dashboard-header">
+        <h1>MusiTube<span>Automator</span></h1>
+        <p>Control de Piloto Automático y Sincronización</p>
+    </header>
 
-        <main id="album-grid" class="dashboard-grid">
-            <!-- Los álbumes se cargarán dinámicamente aquí -->
-            <div class="album-card" style="opacity: 0.5; border-style: dashed;">
-                <div class="album-art" style="display: flex; align-items: center; justify-content: center; font-size: 2rem;">🗂️</div>
-                <div class="album-info">
-                    <h3>Cargando biblioteca...</h3>
-                    <p>Leyendo Google Sheet MusiChris</p>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Overlay de Procesamiento (FFmpeg) -->
-    <div id="render-overlay" class="overlay">
-        <h2 style="color: var(--accent-gold);">Procesando Video Studio</h2>
-        <div class="progress-container">
-            <div id="progress-bar" class="progress-bar"></div>
-        </div>
-        <p class="status-text" id="render-status">Iniciando motor FFmpeg.wasm...</p>
-        <p style="margin-top: 1rem; color: var(--text-dim); font-size: 0.8rem;" id="track-name">Preparando: --</p>
-    </div>
+    <main id="album-grid">
+        <!-- Los álbumes se cargan aquí dinámicamente -->
+        <div class="loader">Cargando biblioteca...</div>
+    </main>
 
     <script src="main.js"></script>
 </body>
