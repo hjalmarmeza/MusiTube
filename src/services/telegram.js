@@ -20,7 +20,7 @@ async function sendNotification(message) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 chat_id: CHAT_ID,
-                text: `🎵 *MusiTube Automator*\n\n${message}`,
+                text: `🎵 *MusiChris Studio*\n\n${message}`,
                 parse_mode: 'Markdown'
             })
         });

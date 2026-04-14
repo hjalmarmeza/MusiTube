@@ -1,8 +1,8 @@
-name: MusiTube Autopilot
+name: MusiChris Studio Autopilot
 
 on:
   schedule:
-    - cron: '0 14 * * *' # Se ejecuta todos los días a las 14:00 UTC
+    - cron: '20 21 * * *' # Se ejecuta todos los días a las 21:20 UTC (23:20 España)
   workflow_dispatch: # Permite ejecución manual
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
       - name: 📦 Install Dependencies
         run: npm install
 
-      - name: 🚀 Run MusiTube Engine
+      - name: 🚀 Run MusiChris Studio Engine
         run: node engine.js
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}

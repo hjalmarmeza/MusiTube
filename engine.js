@@ -21,7 +21,7 @@ async function main() {
 
         if (pendingSongs.length === 0) {
             console.log('✅ No hay canciones pendientes por procesar. ¡Todo al día!');
-            await sendNotification('✅ *MusiChris Studio*: Todo al día en el Sheet.');
+            await sendNotification('✅ Todo al día en el Sheet.');
             return;
         }
 
@@ -42,10 +42,10 @@ async function main() {
         await renderHighFidelityVideo(image, audio, outputPath);
 
         // 5. Subir a YouTube
-        const youtubeId = await uploadToYouTube(outputPath, nextSong);
+        const { videoId, playlistId } = await uploadToYouTube(outputPath, nextSong);
 
                 // 6. Notificar
-                await sendNotification(`🎵 *MusiChris Studio* 🚀\n\n*¡Nueva subida! *\n\n🎵 Canción: ${nextSong.trackTitle}\n💿 Álbum: ${nextSong.albumName}\n🔗 ID YouTube: ${youtubeId}`);
+                await sendNotification(`🚀 *¡Nueva subida! *\n\n🎵 Canción: ${nextSong.trackTitle}\n💿 Álbum: ${nextSong.albumName}\n🔗 ID YouTube: ${videoId}`);
 
                 // 7. Actualizar el Sheet (NUEVO: Reporte de éxito)
                 if (process.env.APPS_SCRIPT_URL) {
@@ -57,7 +57,8 @@ async function main() {
                             data: { 
                                 trackTitle: nextSong.trackTitle, 
                                 newStatus: 'Done',
-                                youtubeId: youtubeId 
+                                youtubeId: videoId,
+                                playlistId: playlistId 
                             }
                         })
                     });

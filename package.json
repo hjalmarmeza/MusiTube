@@ -1,7 +1,7 @@
 {
-  "name": "musitube-automator",
+  "name": "musichris-studio",
   "version": "1.0.0",
-  "description": "Motor de automatización para MusiTube: FFmpeg + YouTube API + Google Sheets",
+  "description": "Motor de automatización para MusiChris Studio: FFmpeg + YouTube API + Google Sheets",
   "main": "engine.js",
   "scripts": {
     "start": "node engine.js",

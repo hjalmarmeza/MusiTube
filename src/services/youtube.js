@@ -16,7 +16,7 @@ async function uploadToYouTube(videoPath, songData) {
         credentials = JSON.parse(fs.readFileSync('credentials.json'));
     } else {
         console.warn('⚠️ No se encontraron credenciales. Simulación activa.');
-        return 'SIMULATED_ID_' + Date.now();
+        return { videoId: 'SIMULATED_ID_' + Date.now(), playlistId: 'SIMULATED_PLAYLIST_ID' };
     }
 
     const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
@@ -41,7 +41,7 @@ async function uploadToYouTube(videoPath, songData) {
             requestBody: {
                 snippet: {
                     title: `${songData.trackTitle} - ${songData.albumName}`,
-                    description: `Escucha "${songData.trackTitle}" del álbum "${songData.albumName}".\n\nAutomated by MusiTube.`,
+                    description: `Escucha "${songData.trackTitle}" del álbum "${songData.albumName}".\n\nAutomated by MusiChris Studio.`,
                     categoryId: '10',
                 },
                 status: {
@@ -70,7 +70,7 @@ async function uploadToYouTube(videoPath, songData) {
         });
         console.log(`➕ Video añadido a la playlist del álbum.`);
 
-        return videoId;
+        return { videoId, playlistId };
     } catch (error) {
         console.error('❌ Error en YouTube:', error.message);
         throw error;

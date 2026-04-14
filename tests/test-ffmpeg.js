@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 async function runTest() {
-    console.log('🚀 --- MUSITUBE: TEST DE RENDER DE ALTA FIDELIDAD ---');
+    console.log('🚀 --- MUSICHRIS STUDIO: TEST DE RENDER DE ALTA FIDELIDAD ---');
     
     const assetsDir = path.join(__dirname, '../assets');
     const tempDir = path.join(__dirname, '../assets/temp');

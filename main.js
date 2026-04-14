@@ -1,6 +1,6 @@
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6JklsOia4HVvuB3b81unFfUWKv79KXUmBQq7JsIUqK6XZPgpTrgArqpSs80rWMN4SEwtVUuYGDMNs/pub?gid=1882591302&single=true&output=csv';
 
-// URL de Google Apps Script (Puente MusiTube)
+// URL de Google Apps Script (Puente MusiChris Studio)
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw_nQ5bfK8gPXHUXaHU6U9ThkAGV20nxzV89YouO5aQ6vfxBYjUKzqiinR_pQ-32ozY6w/exec'; 
 
 let albumsData = {};
