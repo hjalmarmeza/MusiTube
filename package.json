@@ -8,6 +8,7 @@
     "test-render": "node tests/test-ffmpeg.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.0",
     "dotenv": "^16.4.1",
     "fluent-ffmpeg": "^2.1.2",
     "googleapis": "^133.0.0",
