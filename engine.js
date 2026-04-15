@@ -1,104 +1,125 @@
-const { getSongsFromSheet } = require('./src/services/sheets');
-const { prepareAssets } = require('./src/services/downloader');
-const { renderHighFidelityVideo } = require('./src/services/video');
-const { uploadToYouTube } = require('./src/services/youtube');
-const { sendNotification } = require('./src/services/telegram');
-const { sanitizeFilename } = require('./src/utils/helpers');
-const path = require('path');
-const fs = require('fs');
+/**
+ * MusiChris Studio v3.0 "Majestic"
+ * Motor principal de automatización — Pipeline completo
+ */
+
+require('dotenv').config();
+
+const { getSongsFromSheet, updateSongStatus } = require('./src/services/sheets');
+const { prepareAssets, cleanupTempFiles }      = require('./src/services/downloader');
+const { uploadToYouTube, renderVideo }          = require('./src/services/youtube');
+const { sendNotification }                      = require('./src/services/telegram');
+const intelligence                              = require('./src/services/intelligence');
+const path                                     = require('path');
+
+const VERSION = '3.0.0 "Majestic"';
+const BATCH_SIZE = 5; // Límite diario por cuota de YouTube
 
 async function main() {
-    console.log('🤖 --- MUSICHRIS STUDIO: PILOTO AUTOMÁTICO v2.0 ---');
-    
+    console.log(`\n🚀 MusiChris Studio v${VERSION} Iniciando...`);
     const startTime = Date.now();
-    const stats = { processed: 0, errors: 0, skipped: 0 };
+    let uploadedCount = 0;
+    let errorCount = 0;
 
     try {
-        // 1. Obtener canciones y calcular estadísticas del Sheet
         const songs = await getSongsFromSheet();
-        const pendingSongs = songs.filter(s => s.status === 'Pending' && !s.youtubeId).slice(0, 6);
-        const doneSongs = songs.filter(s => s.status === 'Done' || s.youtubeId).length;
-        stats.skipped = songs.length - pendingSongs.length - doneSongs;
+        const pendingSongs = songs.filter(s => s.status === 'Pending').slice(0, BATCH_SIZE);
 
         if (pendingSongs.length === 0) {
-            const msg = `✅ *¡Todo al día!*\n\n📊 Total en Sheet: ${songs.length}\n✅ Subidos: ${doneSongs}\n⏳ Pendientes: 0\n\n¡El catálogo está completo por hoy! 🙌`;
-            console.log('✅ No hay canciones pendientes por procesar.');
-            await sendNotification(msg);
+            console.log('✅ No hay canciones pendientes para subir.');
+            await sendNotification('✅ *Todo al día.* No hay canciones pendientes hoy.');
             return;
         }
 
-        // 2. Aviso de inicio de lote
-        console.log(`🎬 Iniciando lote: ${pendingSongs.length} videos...`);
-        await sendNotification(`🚀 *Piloto Automático Iniciado*\n\n🎬 Procesando ${pendingSongs.length} canciones...\n📊 Ya subidas: ${doneSongs} de ${songs.length}`);
+        await sendNotification(`🎬 *MusiChris Studio v${VERSION}*\n\n🎵 Iniciando lote de *${pendingSongs.length}* canciones...`);
 
-        // 3. Procesar cada canción
-        for (const nextSong of pendingSongs) {
+        for (const song of pendingSongs) {
             try {
-                console.log(`\n--- PROCESANDO: "${nextSong.trackTitle}" ---`);
+                console.log(`\n--- PROCESANDO: "${song.trackTitle}" ---`);
 
-                // Preparar Assets
-                const { image, audio } = await prepareAssets(nextSong);
+                // 1. Descargar assets (imagen + audio)
+                const { image, audio, tempPaths } = await prepareAssets(song);
 
-                // Renderizar Video
-                const safeName = sanitizeFilename(nextSong.trackTitle);
-                const outputPath = path.join(__dirname, `assets/temp/${safeName}.mp4`);
-                await renderHighFidelityVideo(image, audio, outputPath);
+                // 2. Renderizar video con diseño Majestic v7
+                const outputVideo = path.join(__dirname, `assets/temp/video_${Date.now()}.mp4`);
+                await renderVideo(image, audio, outputVideo, song.trackTitle);
 
-                // Subir a YouTube (incluye descripción IA + tags + thumbnail)
-                const { videoId, playlistId } = await uploadToYouTube(outputPath, nextSong);
-                stats.processed++;
+                // 3. Subir a YouTube (incluye descripción IA + tags + thumbnail + playlist)
+                const { videoId, playlistId } = await uploadToYouTube(outputVideo, song);
 
-                // Notificar éxito individual
+                // 4. Actualizar estado en el Sheet
+                await updateSongStatus(song.key || song.trackTitle, 'Done');
+
+                // 5. Notificar éxito individual
                 await sendNotification(
-                    `✅ *¡Nueva Canción Subida!*\n\n` +
-                    `🎵 *${nextSong.trackTitle}*\n` +
-                    `💿 Álbum: ${nextSong.albumName}\n` +
+                    `✅ *¡Subida Exitosa!*\n\n` +
+                    `🎵 *${song.trackTitle}*\n` +
+                    `💿 Álbum: ${song.albumName}\n` +
                     `🔗 [Ver en YouTube](https://youtube.com/watch?v=${videoId})\n` +
-                    `📋 Playlist: [${nextSong.albumName}](https://youtube.com/playlist?list=${playlistId})`
+                    `📋 [Playlist del Álbum](https://youtube.com/playlist?list=${playlistId})`
                 );
 
-                // Actualizar el Sheet
-                if (process.env.APPS_SCRIPT_URL) {
-                    console.log(`📊 Actualizando Sheet para: ${nextSong.trackTitle}...`);
-                    await fetch(process.env.APPS_SCRIPT_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            action: 'update_status',
-                            data: { trackTitle: nextSong.trackTitle, newStatus: 'Done', youtubeId: videoId, playlistId }
-                        })
-                    });
-                }
+                uploadedCount++;
 
-                // Limpiar archivos temporales de esta iteración
-                [image, audio, outputPath].forEach(f => { try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch(e){} });
-                console.log(`✨ Completado: ${nextSong.trackTitle}`);
+                // 6. Limpiar archivos temporales
+                cleanupTempFiles([outputVideo, ...(tempPaths || [])]);
 
             } catch (err) {
-                stats.errors++;
-                console.error(`💥 Error procesando ${nextSong.trackTitle}:`, err);
-                await sendNotification(`❌ *Error en:* ${nextSong.trackTitle}\n${err.message}`);
+                errorCount++;
+                console.error(`💥 Error procesando "${song.trackTitle}":`, err.message);
+                await sendNotification(`⚠️ *Error en:* "${song.trackTitle}"\n\`${err.message}\``);
             }
         }
 
-        // 4. REPORTE FINAL DEL DÍA
+        // --- FASE DE INTELIGENCIA (Después del lote) ---
+        console.log('\n🧠 Ejecutando servicios de inteligencia...');
+        let analyticsReport = '';
+        let trendRadar      = '';
+        let moderation      = '';
+
+        try {
+            // Analytics requiere objeto youtube autenticado — se reutiliza del primer upload
+            // Para no volver a autenticar, extraemos las stats directamente via youtube.js
+            analyticsReport = await intelligence.getDailyChannelStats();
+        } catch (e) {
+            console.warn('⚠️ Analytics no disponible:', e.message);
+            analyticsReport = '📊 _Estadísticas no disponibles hoy._';
+        }
+
+        try {
+            trendRadar = await intelligence.getTrendRadar();
+        } catch (e) {
+            console.warn('⚠️ Radar no disponible:', e.message);
+        }
+
+        try {
+            moderation = await intelligence.moderateLatestComments();
+        } catch (e) {
+            console.warn('⚠️ Moderación no disponible:', e.message);
+        }
+
+        // --- REPORTE FINAL ---
         const elapsed = Math.round((Date.now() - startTime) / 1000 / 60);
-        const remaining = songs.filter(s => s.status === 'Pending' && !s.youtubeId).length - stats.processed;
-        
-        const report = 
-            `🏁 *Reporte del Lote Diario*\n\n` +
-            `✅ Subidos hoy: *${stats.processed}*\n` +
-            `❌ Errores: *${stats.errors}*\n` +
+        const remaining = songs.filter(s => s.status === 'Pending').length - uploadedCount;
+
+        const finalReport =
+            `🏁 *Reporte del Lote Diario (v${VERSION})*\n` +
+            `——————————————————\n` +
+            `✅ Subidas hoy: *${uploadedCount}*\n` +
+            `❌ Errores: *${errorCount}*\n` +
             `⏳ Pendientes restantes: *${Math.max(0, remaining)}*\n` +
-            `✅ Total subidos: *${doneSongs + stats.processed}* de *${songs.length}*\n` +
-            `⏱️ Duración del lote: *${elapsed} min*\n\n` +
-            `${remaining > 0 ? '📅 Mañana a las 23:20 se procesarán más canciones.' : '🎉 ¡Catálogo completo!'}`;
-        
+            `⏱️ Duración: *${elapsed} min*\n\n` +
+            `${analyticsReport}\n\n` +
+            `${trendRadar}\n\n` +
+            `${moderation}\n\n` +
+            `${remaining > 0 ? '📅 Mañana a las 23:20 continuamos.' : '🎉 ¡Catálogo completo!'}`;
+
+        await sendNotification(finalReport);
         console.log('\n🏁 --- LOTE FINALIZADO ---');
-        await sendNotification(report);
 
     } catch (error) {
-        console.error('💥 Error en el ciclo de hoy:', error);
-        await sendNotification(`❌ *Fallo en el Piloto Automático*\nError: ${error.message}`);
+        console.error('💥 ERROR CRÍTICO:', error.message);
+        await sendNotification(`🚨 *ERROR CRÍTICO EN EL MOTOR*\n\`${error.message}\``);
     }
 }
 
