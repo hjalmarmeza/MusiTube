@@ -2,6 +2,51 @@ const fetch = require('node-fetch');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
+const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+async function fetchGeminiWithRetry(prompt, maxRetries = 3) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const options = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            contents: [{ parts: [{ text: prompt }] }],
+            safetySettings: [
+                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+            ]
+        })
+    };
+
+    let lastError = null;
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const response = await fetch(url, options);
+            const data = await response.json();
+            
+            if (data.candidates && data.candidates[0]) {
+                return data.candidates[0].content.parts[0].text;
+            }
+            
+            if (data.error && (data.error.code === 503 || data.error.code === 429)) {
+                console.warn(`🔄 Gemini ocupado (${data.error.code}). Re-intentando en ${2 * (i + 1)}s...`);
+                await sleep(2000 * (i + 1));
+                continue;
+            }
+            
+            console.error('⚠️ Respuesta inesperada de Gemini:', JSON.stringify(data, null, 2));
+            throw new Error('Gemini no devolvió candidatos válidos.');
+        } catch (err) {
+            lastError = err;
+            if (i === maxRetries - 1) break;
+            await sleep(2000 * (i + 1));
+        }
+    }
+    throw lastError || new Error('Fallo persistente al contactar con Gemini');
+}
+
 /**
  * Genera una descripción inspiracional con versículo bíblico para YouTube.
  * Tono: Inspirador, feliz, animando, salvación. NUNCA triste ni desolador.
@@ -30,28 +75,8 @@ REGLAS ESTRICTAS:
 Responde SOLO con la descripción, sin introducción ni explicación.`;
 
     try {
-        const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    contents: [{ parts: [{ text: prompt }] }],
-                    safetySettings: [
-                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-                    ]
-                })
-            }
-        );
-        const data = await response.json();
-        if (data.candidates && data.candidates[0]) {
-            return data.candidates[0].content.parts[0].text;
-        }
-        console.error('⚠️ Gemini API Response (Description):', JSON.stringify(data, null, 2));
-        throw new Error('Gemini no devolvió candidatos.');
+        const text = await fetchGeminiWithRetry(prompt);
+        return text;
     } catch (err) {
         console.error('❌ Error generando descripción con Gemini:', err.message);
         return `🎵 "${trackTitle}" del álbum "${albumName}"\n\n"Todo lo puedo en Cristo que me fortalece." — Filipenses 4:13\n\n¡Que esta música sea una bendición para tu vida! 🙏 #MúsicaCristiana #Fe #Esperanza`;
@@ -74,29 +99,8 @@ Responde SOLO con los tags separados por comas, sin numeración ni explicación.
 Ejemplo: Música Cristiana, Alabanza, Fe, Esperanza, Adoración, Salvación, Gospel, Jesús`;
 
     try {
-        const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    contents: [{ parts: [{ text: prompt }] }],
-                    safetySettings: [
-                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-                    ]
-                })
-            }
-        );
-        const data = await response.json();
-        if (data.candidates && data.candidates[0]) {
-            const raw = data.candidates[0].content.parts[0].text;
-            return raw.split(',').map(t => t.trim()).slice(0, 10);
-        }
-        console.error('⚠️ Gemini API Response (Tags):', JSON.stringify(data, null, 2));
-        throw new Error('Sin candidatos.');
+        const text = await fetchGeminiWithRetry(prompt);
+        return text.split(',').map(t => t.trim()).slice(0, 10);
     } catch (err) {
         console.error('❌ Error generando tags:', err.message);
         return ['Música Cristiana', 'Alabanza', 'Adoración', 'Fe', 'Esperanza', trackTitle, albumName];
