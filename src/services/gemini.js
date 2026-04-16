@@ -1,63 +1,48 @@
-const fetch = require('node-fetch');
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require("@google/generative-ai");
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+let genAI = null;
+let model = null;
+
+if (GEMINI_API_KEY) {
+    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    model = genAI.getGenerativeModel({ 
+        model: "gemini-2.5-flash",
+        safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE }
+        ]
+    });
+}
 
 const sleep = ms => new Promise(res => setTimeout(res, ms));
 
-async function fetchGeminiWithRetry(prompt, maxRetries = 3) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-    const options = {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            contents: [{ parts: [{ text: prompt }] }],
-            safetySettings: [
-                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-            ]
-        })
-    };
+async function fetchFromSDKWithRetry(prompt, maxRetries = 4) {
+    if (!model) throw new Error("API Key no configurada.");
 
     let lastError = null;
     for (let i = 0; i < maxRetries; i++) {
         try {
-            const response = await fetch(url, options);
-            const data = await response.json();
-            
-            if (data.candidates && data.candidates[0]) {
-                return data.candidates[0].content.parts[0].text;
-            }
-            
-            if (data.error && (data.error.code === 503 || data.error.code === 429)) {
-                console.warn(`🔄 Gemini ocupado (${data.error.code}). Re-intentando en ${2 * (i + 1)}s...`);
-                await sleep(2000 * (i + 1));
-                continue;
-            }
-            
-            console.error('⚠️ Respuesta inesperada de Gemini:', JSON.stringify(data, null, 2));
-            throw new Error('Gemini no devolvió candidatos válidos.');
+            const result = await model.generateContent(prompt);
+            const text = result.response.text();
+            if (text) return text;
+            throw new Error("Respuesta vacía de la IA.");
         } catch (err) {
             lastError = err;
+            console.warn(`[Gemini] Intento ${i + 1} fallido: ${err.message}. Reintentando en ${2 * (i + 1)}s...`);
             if (i === maxRetries - 1) break;
             await sleep(2000 * (i + 1));
         }
     }
-    throw lastError || new Error('Fallo persistente al contactar con Gemini');
+    throw lastError || new Error("Fallo persistente reportado por el SDK.");
 }
 
-/**
- * Genera una descripción inspiracional con versículo bíblico para YouTube.
- * Tono: Inspirador, feliz, animando, salvación. NUNCA triste ni desolador.
- * @param {string} trackTitle - Título de la canción.
- * @param {string} albumName - Nombre del álbum.
- * @returns {Promise<string>} - Descripción generada.
- */
 async function generateDescription(trackTitle, albumName) {
     if (!GEMINI_API_KEY) {
         console.warn('⚠️ GEMINI_API_KEY no configurada. Usando descripción por defecto.');
-        return `🎵 "${trackTitle}" del álbum "${albumName}"\n\n¡Que esta música llene tu corazón de esperanza y alegría en el Señor! 🙏✨\n\n#MusiChris #MúsicaCristiana #Fe #Esperanza`;
+        return fallbackDescription(trackTitle, albumName);
     }
 
     const prompt = `Eres un escritor cristiano inspiracional. 
@@ -75,36 +60,35 @@ REGLAS ESTRICTAS:
 Responde SOLO con la descripción, sin introducción ni explicación.`;
 
     try {
-        const text = await fetchGeminiWithRetry(prompt);
-        return text;
+        return await fetchFromSDKWithRetry(prompt);
     } catch (err) {
-        console.error('❌ Error generando descripción con Gemini:', err.message);
-        return `🎵 "${trackTitle}" del álbum "${albumName}"\n\n"Todo lo puedo en Cristo que me fortalece." — Filipenses 4:13\n\n¡Que esta música sea una bendición para tu vida! 🙏 #MúsicaCristiana #Fe #Esperanza`;
+        console.error('❌ Error generando descripción con SDK:', err.message);
+        return fallbackDescription(trackTitle, albumName);
     }
 }
 
-/**
- * Genera una lista de tags relevantes para YouTube.
- * @param {string} trackTitle - Título de la canción.
- * @param {string} albumName - Nombre del álbum.
- * @returns {Promise<string[]>} - Lista de tags.
- */
 async function generateTags(trackTitle, albumName) {
-    if (!GEMINI_API_KEY) {
-        return ['Música Cristiana', 'Alabanza', 'Adoración', 'Fe', 'Esperanza', trackTitle, albumName];
-    }
+    if (!GEMINI_API_KEY) return fallbackTags(trackTitle, albumName);
 
     const prompt = `Para una canción cristiana titulada "${trackTitle}" del álbum "${albumName}", genera exactamente 8 tags para YouTube. 
 Responde SOLO con los tags separados por comas, sin numeración ni explicación.
 Ejemplo: Música Cristiana, Alabanza, Fe, Esperanza, Adoración, Salvación, Gospel, Jesús`;
 
     try {
-        const text = await fetchGeminiWithRetry(prompt);
+        const text = await fetchFromSDKWithRetry(prompt);
         return text.split(',').map(t => t.trim()).slice(0, 10);
     } catch (err) {
-        console.error('❌ Error generando tags:', err.message);
-        return ['Música Cristiana', 'Alabanza', 'Adoración', 'Fe', 'Esperanza', trackTitle, albumName];
+        console.error('❌ Error generando tags con SDK:', err.message);
+        return fallbackTags(trackTitle, albumName);
     }
+}
+
+function fallbackDescription(trackTitle, albumName) {
+    return `🎵 "${trackTitle}" del álbum "${albumName}"\n\n"Todo lo puedo en Cristo que me fortalece." — Filipenses 4:13\n\n¡Que esta música sea una bendición para tu vida! 🙏 #MúsicaCristiana #Fe #Esperanza`;
+}
+
+function fallbackTags(trackTitle, albumName) {
+    return ['Música Cristiana', 'Alabanza', 'Adoración', 'Fe', 'Esperanza', trackTitle, albumName];
 }
 
 module.exports = { generateDescription, generateTags };
