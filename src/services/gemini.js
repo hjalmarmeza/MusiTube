@@ -1,4 +1,6 @@
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require("@google/generative-ai");
+const fetch = require('node-fetch');
+
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 let genAI = null;
@@ -31,6 +33,10 @@ async function fetchFromSDKWithRetry(prompt, maxRetries = 4) {
             throw new Error("Respuesta vacía de la IA.");
         } catch (err) {
             lastError = err;
+            if (err.message.includes('429') || err.message.includes('quota')) {
+                console.warn(`[Gemini] Límite de cuota alcanzado. Saltando a redundancia...`);
+                throw err; // Lanzamos para que el nivel superior use DeepInfra
+            }
             console.warn(`[Gemini] Intento ${i + 1} fallido: ${err.message}. Reintentando en ${2 * (i + 1)}s...`);
             if (i === maxRetries - 1) break;
             await sleep(2000 * (i + 1));
@@ -38,6 +44,38 @@ async function fetchFromSDKWithRetry(prompt, maxRetries = 4) {
     }
     throw lastError || new Error("Fallo persistente reportado por el SDK.");
 }
+
+/**
+ * Fallback hacia DeepInfra (Llama 3 70B)
+ */
+async function fetchFromDeepInfra(prompt) {
+    if (!process.env.DEEPINFRA_API_KEY) throw new Error("DeepInfra API Key no configurada.");
+    
+    console.log('☁️ [DeepInfra] Generando contenido con Llama 3 70B...');
+    try {
+        const response = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.DEEPINFRA_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: "meta-llama/Meta-Llama-3.1-70B-Instruct",
+                messages: [{ role: "user", content: prompt }],
+                max_tokens: 600,
+                temperature: 0.7
+            })
+        });
+
+        if (!response.ok) throw new Error(`DeepInfra HTTP ${response.status}`);
+        const data = await response.json();
+        return data.choices[0].message.content;
+    } catch (err) {
+        console.error('❌ [DeepInfra] Error:', err.message);
+        throw err;
+    }
+}
+
 
 async function generateDescription(trackTitle, albumName) {
     if (!GEMINI_API_KEY) {
@@ -62,10 +100,18 @@ Responde SOLO con la descripción, sin introducción ni explicación.`;
     try {
         return await fetchFromSDKWithRetry(prompt);
     } catch (err) {
-        console.error('❌ Error generando descripción con SDK:', err.message);
+        console.error('❌ [Gemini] Error:', err.message);
+        if (process.env.DEEPINFRA_API_KEY) {
+            try {
+                return await fetchFromDeepInfra(prompt);
+            } catch (deepErr) {
+                return fallbackDescription(trackTitle, albumName);
+            }
+        }
         return fallbackDescription(trackTitle, albumName);
     }
 }
+
 
 async function generateTags(trackTitle, albumName) {
     if (!GEMINI_API_KEY) return fallbackTags(trackTitle, albumName);
@@ -78,10 +124,19 @@ Ejemplo: Música Cristiana, Alabanza, Fe, Esperanza, Adoración, Salvación, Gos
         const text = await fetchFromSDKWithRetry(prompt);
         return text.split(',').map(t => t.trim()).slice(0, 10);
     } catch (err) {
-        console.error('❌ Error generando tags con SDK:', err.message);
+        console.error('❌ [Gemini] Error en tags:', err.message);
+        if (process.env.DEEPINFRA_API_KEY) {
+            try {
+                const text = await fetchFromDeepInfra(prompt);
+                return text.split(',').map(t => t.trim()).slice(0, 10);
+            } catch (deepErr) {
+                return fallbackTags(trackTitle, albumName);
+            }
+        }
         return fallbackTags(trackTitle, albumName);
     }
 }
+
 
 function fallbackDescription(trackTitle, albumName) {
     return `🎵 "${trackTitle}" del álbum "${albumName}"\n\n"Todo lo puedo en Cristo que me fortalece." — Filipenses 4:13\n\n¡Que esta música sea una bendición para tu vida! 🙏 #MúsicaCristiana #Fe #Esperanza`;

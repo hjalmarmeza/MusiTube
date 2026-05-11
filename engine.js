@@ -72,7 +72,14 @@ async function main() {
                 errorCount++;
                 console.error(`💥 Error procesando "${song.trackTitle}":`, err.message);
                 await sendNotification(`⚠️ *Error en:* "${song.trackTitle}"\n\`${err.message}\``);
+
+                // Si es un error de autenticación crítico, detenemos todo el motor
+                if (err.message.includes('invalid_grant') || err.message.includes('No se encontró token')) {
+                    console.error('🚨 Error de autenticación crítico detectado. Deteniendo motor...');
+                    throw new Error('AUTH_FAILURE: ' + err.message);
+                }
             }
+
         }
 
         // --- FASE DE INTELIGENCIA (Después del lote) ---
