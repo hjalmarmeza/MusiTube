@@ -33,7 +33,17 @@ class IntelligenceService {
         }
 
         if (process.env.YOUTUBE_TOKEN_JSON) {
-            token = JSON.parse(process.env.YOUTUBE_TOKEN_JSON);
+            const rawToken = process.env.YOUTUBE_TOKEN_JSON.trim();
+            if (rawToken.startsWith('{')) {
+                token = JSON.parse(rawToken);
+            } else {
+                console.log("ℹ️ Detectado Refresh Token directo en YOUTUBE_TOKEN_JSON. Reconstruyendo objeto...");
+                token = {
+                    refresh_token: rawToken,
+                    scope: "https://www.googleapis.com/auth/youtube.force-ssl",
+                    token_type: "Bearer"
+                };
+            }
         } else if (fs.existsSync('token.json')) {
             token = JSON.parse(fs.readFileSync('token.json'));
         } else {

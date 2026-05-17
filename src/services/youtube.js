@@ -31,10 +31,24 @@ async function uploadToYouTube(videoPath, songData) {
     const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
     const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
 
-    if (!process.env.YOUTUBE_TOKEN_JSON && !fs.existsSync('token.json')) {
+    let token;
+    if (process.env.YOUTUBE_TOKEN_JSON) {
+        const rawToken = process.env.YOUTUBE_TOKEN_JSON.trim();
+        if (rawToken.startsWith('{')) {
+            token = JSON.parse(rawToken);
+        } else {
+            console.log("ℹ️ Detectado Refresh Token directo en YOUTUBE_TOKEN_JSON. Reconstruyendo objeto...");
+            token = {
+                refresh_token: rawToken,
+                scope: "https://www.googleapis.com/auth/youtube.force-ssl",
+                token_type: "Bearer"
+            };
+        }
+    } else if (fs.existsSync('token.json')) {
+        token = JSON.parse(fs.readFileSync('token.json'));
+    } else {
         throw new Error('❌ No se encontró token de acceso (YOUTUBE_TOKEN_JSON).');
     }
-    const token = process.env.YOUTUBE_TOKEN_JSON ? JSON.parse(process.env.YOUTUBE_TOKEN_JSON) : JSON.parse(fs.readFileSync('token.json'));
     oAuth2Client.setCredentials(token);
 
     const youtube = google.youtube({ version: 'v3', auth: oAuth2Client });
